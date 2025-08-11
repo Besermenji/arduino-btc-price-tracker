@@ -6,9 +6,6 @@
 #define LCD_COLUMNS 16
 #define LCD_ROWS 2
 
-// UNO+WiFi R3 uses standard Arduino UNO I2C pins
-// SDA = A4, SCL = A5
-
 LiquidCrystal_I2C lcd(LCD_ADDRESS, LCD_COLUMNS, LCD_ROWS);
 
 const char* ssid = "YOUR_WIFI_SSID";
@@ -19,6 +16,65 @@ const char* apiUrl = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&
 unsigned long lastUpdate = 0;
 const unsigned long updateInterval = 30000;
 
+float lastPrice = 0;
+bool firstUpdate = true;
+
+// Custom characters for better visuals
+byte bitcoinSymbol[8] = {
+  0b00000,
+  0b01110,
+  0b11111,
+  0b11111,
+  0b11111,
+  0b01110,
+  0b00000,
+  0b00000
+};
+
+byte wifiSymbol[8] = {
+  0b00000,
+  0b01110,
+  0b11111,
+  0b01110,
+  0b00100,
+  0b00100,
+  0b00000,
+  0b00000
+};
+
+byte arrowUp[8] = {
+  0b00100,
+  0b01110,
+  0b11111,
+  0b00100,
+  0b00100,
+  0b00100,
+  0b00000,
+  0b00000
+};
+
+byte arrowDown[8] = {
+  0b00000,
+  0b00100,
+  0b00100,
+  0b00100,
+  0b11111,
+  0b01110,
+  0b00100,
+  0b00000
+};
+
+byte dollarSign[8] = {
+  0b00100,
+  0b01110,
+  0b10101,
+  0b00100,
+  0b00100,
+  0b10101,
+  0b01110,
+  0b00100
+};
+
 void setup() {
   Serial.begin(115200);
   Serial.println("UNO+WiFi R3 BTC Price Tracker");
@@ -27,25 +83,23 @@ void setup() {
   lcd.init();
   lcd.backlight();
   
-  lcd.setCursor(0, 0);
-  lcd.print("UNO+WiFi R3");
-  lcd.setCursor(0, 1);
-  lcd.print("BTC Tracker");
-  delay(2000);
+  // Create custom characters
+  lcd.createChar(0, bitcoinSymbol);
+  lcd.createChar(1, wifiSymbol);
+  lcd.createChar(2, arrowUp);
+  lcd.createChar(3, arrowDown);
+  lcd.createChar(4, dollarSign);
   
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Connecting WiFi...");
+  // Welcome animation
+  showWelcomeScreen();
   
-  // Initialize WiFi connection
+  // Initialize WiFi
   initializeWiFi();
   
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("WiFi Connected!");
-  delay(2000);
+  // Show connected status
+  showWiFiConnected();
   
-  lcd.clear();
+  // First price update
   updateBitcoinPrice();
 }
 
@@ -56,8 +110,44 @@ void loop() {
   }
 }
 
+void showWelcomeScreen() {
+  lcd.clear();
+  
+  // Top row with Bitcoin symbol
+  lcd.setCursor(0, 0);
+  lcd.print("  ");
+  lcd.write(0);
+  lcd.print(" BTC Tracker ");
+  lcd.write(0);
+  lcd.print("  ");
+  
+  // Bottom row with WiFi symbol
+  lcd.setCursor(0, 1);
+  lcd.print(" ");
+  lcd.write(1);
+  lcd.print(" Connecting... ");
+  lcd.write(1);
+  lcd.print(" ");
+  
+  delay(3000);
+}
+
+void showWiFiConnected() {
+  lcd.clear();
+  
+  // Top row: WiFi status
+  lcd.setCursor(0, 0);
+  lcd.write(1);
+  lcd.print(" WiFi Connected!");
+  
+  // Bottom row: Ready message
+  lcd.setCursor(0, 1);
+  lcd.print("Ready to track!");
+  
+  delay(2000);
+}
+
 void initializeWiFi() {
-  // Send AT commands to ESP8266 module
   Serial.println("AT+RST");
   delay(2000);
   
@@ -77,13 +167,11 @@ void initializeWiFi() {
 }
 
 void updateBitcoinPrice() {
-  // Connect to API server
   String cmd = "AT+CIPSTART=\"TCP\",\"api.coingecko.com\",80";
   Serial.println(cmd);
   delay(2000);
   
   if (Serial.find("OK")) {
-    // Prepare HTTP request
     String request = "GET /api/v3/simple/price?ids=bitcoin&vs_currencies=usd HTTP/1.1\r\n";
     request += "Host: api.coingecko.com\r\n";
     request += "Connection: close\r\n\r\n";
@@ -96,13 +184,11 @@ void updateBitcoinPrice() {
     Serial.print(request);
     delay(2000);
     
-    // Read response
     String response = "";
     while (Serial.available()) {
       response += Serial.readString();
     }
     
-    // Parse JSON response
     int jsonStart = response.indexOf("{");
     if (jsonStart != -1) {
       String jsonData = response.substring(jsonStart);
@@ -112,30 +198,79 @@ void updateBitcoinPrice() {
       
       float btcPrice = doc["bitcoin"]["usd"];
       
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Bitcoin Price:");
-      lcd.setCursor(0, 1);
-      lcd.print("$");
-      lcd.print(btcPrice, 2);
+      // Show price with pretty formatting
+      showPriceDisplay(btcPrice);
       
       Serial.print("BTC Price: $");
       Serial.println(btcPrice, 2);
+      
+      lastPrice = btcPrice;
+      firstUpdate = false;
     } else {
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Error parsing");
-      lcd.setCursor(0, 1);
-      lcd.print("response data");
+      showErrorDisplay("Parse Error");
     }
     
     Serial.println("AT+CIPCLOSE");
     delay(1000);
   } else {
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("WiFi connection");
-    lcd.setCursor(0, 1);
-    lcd.print("failed");
+    showErrorDisplay("WiFi Error");
   }
+}
+
+void showPriceDisplay(float price) {
+  lcd.clear();
+  
+  // Top row: Bitcoin symbol and price
+  lcd.setCursor(0, 0);
+  lcd.write(0);
+  lcd.print(" Bitcoin Price");
+  
+  // Bottom row: Price with dollar sign and arrow
+  lcd.setCursor(0, 1);
+  lcd.write(4); // Dollar sign
+  lcd.print(" ");
+  
+  // Format price nicely
+  String priceStr = formatPrice(price);
+  lcd.print(priceStr);
+  
+  // Add arrow indicator if not first update
+  if (!firstUpdate) {
+    if (price > lastPrice) {
+      lcd.print(" ");
+      lcd.write(2); // Up arrow
+    } else if (price < lastPrice) {
+      lcd.print(" ");
+      lcd.write(3); // Down arrow
+    }
+  }
+}
+
+String formatPrice(float price) {
+  String priceStr = String(price, 2);
+  
+  if (price >= 100000) {
+    // Format as XX,XXX.XX
+    int thousands = (int)price / 1000;
+    priceStr = String(thousands) + "," + priceStr.substring(priceStr.length() - 4);
+  } else if (price >= 10000) {
+    // Format as X,XXX.XX
+    int thousands = (int)price / 1000;
+    priceStr = String(thousands) + "," + priceStr.substring(priceStr.length() - 4);
+  }
+  
+  return priceStr;
+}
+
+void showErrorDisplay(String error) {
+  lcd.clear();
+  
+  // Top row: Error symbol and message
+  lcd.setCursor(0, 0);
+  lcd.print("Error: ");
+  lcd.print(error);
+  
+  // Bottom row: Retry message
+  lcd.setCursor(0, 1);
+  lcd.print("Retrying...");
 }
