@@ -134,12 +134,11 @@ void setup() {
   // Welcome animation
   showWelcomeScreen();
   
-  // Manual test mode - bypass WiFi init for now
-  lcdMsg(F("Manual"), F("Test Mode"));
-  delay(2000);
+  // Initialize WiFi
+  initializeWiFi();
   
-  // Skip WiFi init for testing
-  wifiConnected = true;
+  // Show connected status
+  showWiFiConnected();
   
   // First price update
   updateBitcoinPrice();
@@ -391,47 +390,6 @@ void handleWiFiCommunication() {
 }
 
 void updateBitcoinPrice() {
-  // First test basic communication
-  lcdMsg(F("Testing"), F("ESP8266..."));
-  delay(1000);
-  
-  // Send test command
-  lcdMsg(F("Sending"), F("TEST..."));
-  Serial.println("TEST");
-  delay(1000);
-  
-  // Check for response with detailed LCD feedback
-  lcdMsg(F("Waiting"), F("Response..."));
-  delay(1000);
-  
-  if (Serial.available()) {
-    String testResponse = Serial.readString();
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Got Response:");
-    lcd.setCursor(0, 1);
-    lcd.print(testResponse.substring(0, 16));
-    delay(2000);
-    
-    if (testResponse.indexOf("ESP8266 TEST RESPONSE") != -1) {
-      lcdMsg(F("ESP8266 OK"), F("Testing HTTP..."));
-      delay(1000);
-    } else if (testResponse.indexOf("CMD_ACK: TEST") != -1) {
-      lcdMsg(F("ESP ACK OK"), F("Testing HTTP..."));
-      delay(1000);
-    } else {
-      showFullResponse("ESP test failed: " + testResponse.substring(0, 16));
-      delay(3000);
-      return;
-    }
-  } else {
-    lcdMsg(F("No Response"), F("From ESP8266"));
-    delay(2000);
-    showFullResponse("No ESP response");
-    delay(3000);
-    return;
-  }
-
   // Indicate HTTP flow on LCD
   lcdMsg(F("HTTP"), F("GET..."));
   delay(1000);
@@ -469,8 +427,8 @@ void updateBitcoinPrice() {
   
   lcdMsg(F("Response"), F("Complete"));
   delay(1000);
-
-  // Parse JSON response
+  
+  // Parse JSON response - extract price directly
   if (responseBuffer.length() > 0) {
     lcd.clear();
     lcd.setCursor(0, 0);
@@ -489,22 +447,53 @@ void updateBitcoinPrice() {
       lcd.print(jsonData.substring(0, 16));
       delay(2000);
       
-      JsonDocument doc;
-      DeserializationError err = deserializeJson(doc, jsonData);
-      if(!err){
-        float btcPrice = doc["bitcoin"]["usd"];
-        showPriceDisplay(btcPrice);
-        lastPrice = btcPrice;
-        firstUpdate = false;
+      // Extract price directly from JSON string
+      lcdMsg(F("Extracting"), F("Price..."));
+      delay(1000);
+      
+      // Look for "usd": pattern in the JSON
+      int usdStart = jsonData.indexOf("\"usd\":");
+      if (usdStart != -1) {
+        int valueStart = usdStart + 6; // Skip "usd":
+        int valueEnd = jsonData.indexOf(",", valueStart);
+        if (valueEnd == -1) valueEnd = jsonData.indexOf("}", valueStart);
+        
+        if (valueEnd != -1) {
+          String priceStr = jsonData.substring(valueStart, valueEnd);
+          priceStr.trim();
+          float btcPrice = priceStr.toFloat();
+          
+          if (btcPrice > 0) {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Price Found!");
+            lcd.setCursor(0, 1);
+            lcd.print("$");
+            lcd.print(btcPrice, 2);
+            delay(2000);
+            showPriceDisplay(btcPrice);
+            lastPrice = btcPrice;
+            firstUpdate = false;
+            return;
+          } else {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Invalid Price");
+            lcd.setCursor(0, 1);
+            lcd.print("Value: ");
+            lcd.print(priceStr);
+            delay(2000);
+          }
+        } else {
+          lcdMsg(F("No Price End"), F("Found"));
+          delay(2000);
+        }
       } else {
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Parse Error:");
-        lcd.setCursor(0, 1);
-        lcd.print(err.c_str());
-        delay(3000);
-        showFullResponse("Parse failed: " + jsonData.substring(0, 32));
+        lcdMsg(F("No USD Field"), F("Found"));
+        delay(2000);
       }
+      
+      showFullResponse("Price extraction failed");
     } else {
       showFullResponse("No JSON: " + responseBuffer.substring(0, 32));
     }
