@@ -384,16 +384,11 @@ void handleWiFiCommunication() {
 }
 
 void updateBitcoinPrice() {
-  // Indicate HTTP flow on LCD
-  lcdMsg(F("HTTP"), F("GET..."));
-  delay(1000);
-
   // Request price via custom ESP8266 firmware
   responseBuffer = "";
   Serial.println("GET");
 
   // Read response
-  lcdMsg(F("Bitcoin Price"), F("Loading..."));
   unsigned long startTime = millis();
   responseBuffer = "";
   
