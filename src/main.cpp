@@ -388,57 +388,28 @@ void updateBitcoinPrice() {
   Serial.println("GET");
 
   // Read response
-  lcdMsg(F("Reading"), F("Response..."));
+  lcdMsg(F("Fetching"), F("Price..."));
   unsigned long startTime = millis();
   responseBuffer = "";
   
   while ((millis() - startTime) < 15000) {
     if (Serial.available()) {
       String chunk = Serial.readString();
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Chunk:");
-      lcd.setCursor(0, 1);
-      lcd.print(chunk.substring(0, 16));
-      delay(500);
-      
       responseBuffer += chunk;
       
       // Check if we have a complete JSON response
       if (responseBuffer.indexOf('{') != -1 && responseBuffer.indexOf('}') != -1) {
-        lcdMsg(F("Complete"), F("JSON Found"));
-        delay(1000);
         break;
       }
     }
     delay(10);
   }
   
-  lcdMsg(F("Response"), F("Complete"));
-  delay(1000);
-  
   // Parse JSON response - extract price directly
   if (responseBuffer.length() > 0) {
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Response:");
-    lcd.setCursor(0, 1);
-    lcd.print(responseBuffer.substring(0, 16));
-    delay(2000);
-    
     int jsonStart = responseBuffer.indexOf('{');
     if (jsonStart != -1) {
       String jsonData = responseBuffer.substring(jsonStart);
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("JSON:");
-      lcd.setCursor(0, 1);
-      lcd.print(jsonData.substring(0, 16));
-      delay(2000);
-      
-      // Extract price directly from JSON string
-      lcdMsg(F("Extracting"), F("Price..."));
-      delay(1000);
       
       // Look for "usd": pattern in the JSON
       int usdStart = jsonData.indexOf("\"usd\":");
@@ -455,37 +426,20 @@ void updateBitcoinPrice() {
           if (btcPrice > 0) {
             lcd.clear();
             lcd.setCursor(0, 0);
-            lcd.print("Price Found!");
+            lcd.print("Bitcoin Price:");
             lcd.setCursor(0, 1);
             lcd.print("$");
-            lcd.print(btcPrice, 2);
-            delay(2000);
-            showPriceDisplay(btcPrice);
+            lcd.print(btcPrice);
             lastPrice = btcPrice;
             firstUpdate = false;
             return;
-          } else {
-            lcd.clear();
-            lcd.setCursor(0, 0);
-            lcd.print("Invalid Price");
-            lcd.setCursor(0, 1);
-            lcd.print("Value: ");
-            lcd.print(priceStr);
-            delay(2000);
           }
-        } else {
-          lcdMsg(F("No Price End"), F("Found"));
-          delay(2000);
         }
-      } else {
-        lcdMsg(F("No USD Field"), F("Found"));
-        delay(2000);
       }
-      
-      showFullResponse("Price extraction failed");
-    } else {
-      showFullResponse("No JSON: " + responseBuffer.substring(0, 32));
     }
+    
+    // If we get here, something went wrong
+    showErrorDisplay("Price fetch failed");
   }
 }
 
