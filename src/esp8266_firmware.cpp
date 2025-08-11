@@ -53,7 +53,6 @@ void handleCmd(const String &cmd){
   
   if(cmd=="GET")      httpPrice();
   else if(cmd=="PING") Serial.println(F("PONG"));
-  else if(cmd=="TEST") Serial.println(F("ESP8266 TEST RESPONSE"));
   else                 Serial.println(F("ERR unknown cmd"));
 }
 

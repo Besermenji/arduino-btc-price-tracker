@@ -145,17 +145,6 @@ void setup() {
 }
 
 void loop() {
-  // Check for ESP8266 data continuously
-  if (Serial.available()) {
-    String data = Serial.readString();
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("ESP Data:");
-    lcd.setCursor(0, 1);
-    lcd.print(data.substring(0, 16));
-    delay(2000);
-  }
-  
   // Handle WiFi communication state machine
   handleWiFiCommunication();
   
