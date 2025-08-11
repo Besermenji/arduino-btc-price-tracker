@@ -64,7 +64,7 @@ platformio run -e uno_wifi_r3 -t upload
 | **1+2 ON** | ATmega ↔ ESP8266 | **Production Mode** - Normal operation |
 | **3+4 ON** | USB → ATmega | Upload UNO firmware |
 | **5+6 ON** | USB → ESP8266 | Upload ESP8266 firmware |
-| **All OFF** | Independent | Debug/testing mode |
+| **All OFF** | Independent | Not recommended |
 
 ## 📁 **Project Structure**
 
@@ -117,15 +117,13 @@ const char* password = "YOUR_WIFI_PASSWORD";
 
 #### **LCD Shows Garbage**
 - **Cause**: Wrong I2C address or wiring issues
-- **Solution**: Use I2C scanner to find correct address
+- **Solution**: Check wiring and verify I2C address in config.h
 
 #### **Board Restarts**
 - **Cause**: Power supply insufficient for ESP8266
 - **Solution**: Use powered USB hub or external 5V/1A+ supply
 
-### **Debug Mode**
-- **ESP8266 Debug**: Switches 5+6 ON + Serial Monitor
-- **UNO Debug**: Switches 3+4 ON + Serial Monitor
+
 
 ## 📊 **Performance**
 

@@ -16,13 +16,6 @@ static void lcdMsg(const __FlashStringHelper* line1, const __FlashStringHelper* 
   lcd.print(line2);
 }
 
-// Custom characters
-byte bitcoinChar[8] = {0x00, 0x0E, 0x1F, 0x1F, 0x1F, 0x0E, 0x00, 0x00};
-byte wifiChar[8] = {0x00, 0x00, 0x0E, 0x11, 0x11, 0x0E, 0x00, 0x00};
-byte upArrow[8] = {0x00, 0x04, 0x0E, 0x1F, 0x00, 0x00, 0x00, 0x00};
-byte downArrow[8] = {0x00, 0x00, 0x00, 0x1F, 0x0E, 0x04, 0x00, 0x00};
-byte dollarChar[8] = {0x00, 0x04, 0x0E, 0x04, 0x04, 0x04, 0x00, 0x00};
-
 // Communication state machine
 enum CommunicationState {
   IDLE,
@@ -106,8 +99,6 @@ void showWelcomeScreen();
 void showWiFiConnected();
 void initializeWiFi();
 void updateBitcoinPrice();
-void showPriceDisplay(float price);
-String formatPrice(float price);
 void showErrorDisplay(String error);
 void sendCommandToESP(String command);
 void processESPResponse();
@@ -123,13 +114,6 @@ void setup() {
   Wire.begin();
   lcd.init();
   lcd.backlight();
-  
-  // Create custom characters
-  lcd.createChar(0, bitcoinChar);
-  lcd.createChar(1, wifiChar);
-  lcd.createChar(2, upArrow);
-  lcd.createChar(3, downArrow);
-  lcd.createChar(4, dollarChar);
   
   // Welcome animation
   showWelcomeScreen();
@@ -472,50 +456,7 @@ void updateBitcoinPrice() {
   }
 }
 
-void showPriceDisplay(float price) {
-  lcd.clear();
-  
-  // Top row: Bitcoin symbol and price
-  lcd.setCursor(0, 0);
-  lcd.write(0);
-  lcd.print(" Bitcoin Price");
-  
-  // Bottom row: Price with dollar sign and arrow
-  lcd.setCursor(0, 1);
-  lcd.write(4); // Dollar sign
-  lcd.print(" ");
-  
-  // Format price nicely
-  String priceStr = formatPrice(price);
-  lcd.print(priceStr);
-  
-  // Add arrow indicator if not first update
-  if (!firstUpdate) {
-    if (price > lastPrice) {
-      lcd.print(" ");
-      lcd.write(2); // Up arrow
-    } else if (price < lastPrice) {
-      lcd.print(" ");
-      lcd.write(3); // Down arrow
-    }
-  }
-}
 
-String formatPrice(float price) {
-  String priceStr = String(price, 2);
-  
-  if (price >= 100000) {
-    // Format as XX,XXX.XX
-    int thousands = (int)price / 1000;
-    priceStr = String(thousands) + "," + priceStr.substring(priceStr.length() - 4);
-  } else if (price >= 10000) {
-    // Format as X,XXX.XX
-    int thousands = (int)price / 1000;
-    priceStr = String(thousands) + "," + priceStr.substring(priceStr.length() - 4);
-  }
-  
-  return priceStr;
-}
 
 void showErrorDisplay(String error) {
   lcd.clear();
