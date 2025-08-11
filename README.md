@@ -89,6 +89,152 @@ The `config.h` file contains your WiFi credentials and is **automatically gitign
 - **SDA** → A4 (I2C Data)
 - **SCL** → A5 (I2C Clock)
 
+## 🔧 **Critical: Switch Configuration & ESP8266 Firmware**
+
+**⚠️ IMPORTANT: Your board has 8 DIP switches that MUST be set correctly for WiFi to work!**
+
+**🚨 CRITICAL DISCOVERY: The ESP8266 needs its own firmware to process AT commands!**
+
+### **Why ESP8266 Firmware is Required:**
+- **ATmega328 code** sends AT commands to ESP8266
+- **ESP8266 chip** needs firmware to understand and respond to these commands
+- **Without ESP8266 firmware**: You get garbled responses (`[` characters) instead of "OK"
+- **With ESP8266 firmware**: Clean communication with proper "OK" responses
+
+### **Required Switch Settings for Bitcoin Tracker:**
+```
+[1] [2] [3] [4] [5] [6] [7] [8]
+ ↓   ↓   ↓   ↓   ↓   ↓   ↓   ↓
+ON  ON  OFF OFF OFF OFF OFF OFF
+```
+
+### **What Each Mode Does (Based on Official Documentation):**
+| Mode | Purpose | Switch Settings | Use Case |
+|------|---------|-----------------|----------|
+| **ATmega ↔ ESP8266** | **ATmega328 ↔ ESP8266** | **SW1, SW2 ON, others OFF** | **Bitcoin Tracker (WiFi)** |
+| **USB → ATmega** | USB → ATmega328 (programming) | SW3, SW4 ON, others OFF | Upload Arduino code |
+| **USB → ESP8266** | USB → ESP8266 (programming) | SW5, SW6, SW7 ON, others OFF | Upload ESP8266 code |
+| **USB → ESP8266** | USB → ESP8266 (communication) | SW5, SW6 ON, others OFF | ESP8266 serial monitor |
+| **All Independent** | No communication | All switches OFF | Factory reset |
+
+### **Official Switch Configuration (from Arduino Forum):**
+```
+Switch: 1  2  3  4  5  6  7  8
+ATmega ↔ ESP8266: 1  1  0  0  0  0  0  0  (Bitcoin Tracker)
+USB → ATmega:     0  0  1  1  0  0  0  0  (Upload Arduino code)
+USB → ESP8266:    0  0  0  0  1  1  1  0  (Upload ESP8266 code)
+USB → ESP8266:    0  0  0  0  1  1  0  0  (ESP8266 serial monitor)
+All Independent:  0  0  0  0  0  0  0  0  (Factory reset)
+```
+
+### **Why ATmega ↔ ESP8266 Mode Works:**
+- **SW1 = ON**: Enables ATmega328 → ESP8266 communication
+- **SW2 = ON**: Enables ESP8266 → ATmega328 communication  
+- **SW3,4 = OFF**: Prevents USB programming conflicts
+- **SW5,6,7,8 = OFF**: Disables ESP8266 programming mode
+
+### **Complete Setup Process:**
+
+#### **Phase 1: Upload ESP8266 Firmware**
+1. **Power off** board completely (unplug USB)
+2. **Set switches** to ESP8266 programming mode: `OFF OFF OFF OFF ON ON ON OFF`
+3. **Power on** (plug USB back in)
+4. **Upload ESP8266 firmware**:
+   ```bash
+   platformio run --environment esp8266_programming --target upload
+   ```
+5. **After upload, turn switch 7 OFF** to prevent factory reset on reboot
+
+#### **Phase 2: Upload ATmega328 Code**
+1. **Power off** board completely (unplug USB)
+2. **Set switches** to ATmega programming mode: `OFF OFF ON ON OFF OFF OFF OFF`
+3. **Power on** (plug USB back in)
+4. **Upload Bitcoin tracker code**:
+   ```bash
+   platformio run --environment uno_wifi_r3 --target upload
+   ```
+
+#### **Phase 3: Run WiFi Mode**
+1. **Power off** board completely (unplug USB)
+2. **Set switches** to WiFi communication mode: `ON ON OFF OFF OFF OFF OFF OFF`
+3. **Power on** (plug USB back in)
+4. **Reset** board (press RESET button)
+5. **Test WiFi communication** (see Serial Testing below)
+
+### **Programming Notes (from Arduino Forum):**
+- **For ATmega programming**: Set switches 3,4 ON, others OFF, then upload
+- **For ESP8266 programming**: Set switches 5,6,7 ON, others OFF, then upload
+- **After ESP8266 upload**: Turn switch 7 OFF to prevent factory reset on reboot
+- **Timing matters**: Press reset button during upload if needed
+- **If upload fails**: Try multiple times with different reset timing
+
+## 🧪 **Serial Testing & Verification**
+
+### **Step 1: Test ESP8266 Communication**
+After completing all phases, open serial monitor:
+```bash
+platformio run --environment uno_wifi_r3 --target monitor
+```
+
+**Expected Output (Success):**
+```
+UNO+WiFi R3 BTC Price Tracker
+[ESP8266] Sending: AT+RST
+[STATE] Sending command -> State: SENDING_COMMAND
+[STATE] Waiting for response -> State: WAITING_RESPONSE
+[ESP8266] Response: OK
+[STATE] Processing response -> State: PROCESSING_RESPONSE
+[DEBUG] ESP8266 reset successful
+[ESP8266] Sending: AT+CWMODE=1
+[ESP8266] Response: OK
+[DEBUG] WiFi mode set successfully
+[ESP8266] Sending: AT+CWJAP="YOUR_WIFI","PASSWORD"
+[ESP8266] Response: OK
+[WiFi] Status: CONNECTED
+[ESP8266] Sending: AT+CIPSTART="TCP","api.coingecko.com",80
+[ESP8266] Response: OK
+[DEBUG] TCP connection established
+[API] Bitcoin Price: $XX,XXX.XX
+```
+
+### **Step 2: Troubleshooting Common Issues**
+
+#### **Issue: No ESP8266 Response**
+**Symptoms:** `[ERROR] ESP8266 timeout - no response received`
+**Solutions:**
+- Verify switches are in WiFi mode: `ON ON OFF OFF OFF OFF OFF OFF`
+- Check ESP8266 LED is lit (indicates power)
+- Try power cycling the board
+- Ensure ESP8266 firmware was uploaded successfully
+
+#### **Issue: Garbled Responses**
+**Symptoms:** `[ESP8266] Response: [ [ [ [ [`
+**Solutions:**
+- ESP8266 firmware not uploaded - complete Phase 1
+- Wrong switch configuration - use WiFi mode
+- Communication timing issues - check baud rate (115200)
+
+#### **Issue: WiFi Connection Fails**
+**Symptoms:** `[ESP8266] Response: FAIL`
+**Solutions:**
+- Check WiFi credentials in ESP8266 firmware
+- Verify WiFi network is 2.4GHz (ESP8266 doesn't support 5GHz)
+- Check WiFi signal strength
+- Ensure ESP8266 has proper firmware
+
+### **Step 3: Verify LCD Display**
+**Expected LCD Output:**
+- **Welcome screen**: Bitcoin symbol + "BTC Tracker"
+- **WiFi status**: WiFi symbol + "WiFi Connected!"
+- **Price display**: Bitcoin symbol + "$XX,XXX.XX" + trend arrow
+
+### **Step 4: Performance Monitoring**
+**Good Performance Indicators:**
+- WiFi connects within 5-10 seconds
+- Price updates every 30 seconds
+- Clean serial output with no timeouts
+- LCD updates smoothly without flickering
+
 ## 🚀 PlatformIO Advantages
 
 - **Better library management** - Automatic dependency resolution
@@ -119,7 +265,35 @@ code src/config.h
 cd arduino-btc-price-tracker
 ```
 
-### 4. Build and Upload
+### 4. Debug Configuration
+The project includes essential debug output to help you troubleshoot:
+- **WiFi connection status** and AT command responses
+- **ESP8266 communication** state machine transitions
+- **API responses** from CoinGecko
+- **Error conditions** and failures
+
+**To enable/disable debug mode:**
+1. Edit `src/config.h`
+2. Set `DEBUG_MODE` to `true` (enabled) or `false` (disabled)
+3. Rebuild and upload
+
+**Example config changes:**
+```cpp
+// Enable debug output (default)
+#define DEBUG_MODE true
+
+// Disable debug output (cleaner serial monitor)
+#define DEBUG_MODE false
+```
+
+**Debug output includes:**
+- `[STATE]` - State machine transitions (IDLE → SENDING_COMMAND → WAITING_RESPONSE → PROCESSING_RESPONSE)
+- `[ESP8266]` - AT commands sent and responses received
+- `[WiFi]` - WiFi connection status updates
+- `[API]` - Bitcoin price updates
+- `[ERROR]` - Error conditions and failures
+
+### 5. Build and Upload
 
 #### **Bitcoin Price Tracker (Default):**
 ```bash
@@ -131,6 +305,19 @@ platformio run --environment uno_wifi_r3 --target upload
 
 # Monitor serial output
 platformio run --environment uno_wifi_r3 --target monitor
+```
+
+**💡 Debug Output Example:**
+```
+[ESP8266] Sending: AT+RST
+[STATE] Sending command -> State: SENDING_COMMAND
+[STATE] Waiting for response -> State: WAITING_RESPONSE
+[ESP8266] Response: OK
+[STATE] Processing response -> State: PROCESSING_RESPONSE
+[WiFi] Status: CONNECTED
+[ESP8266] Sending: AT+CIPSTART="TCP","api.coingecko.com",80
+[ESP8266] Response: OK
+[API] Bitcoin Price: $43,250.12
 ```
 
 #### **LCD Test and Demo:**
@@ -341,7 +528,7 @@ Uses CoinGecko API to fetch real-time Bitcoin prices in USD.
 ### **Common Hardware Issues:**
 
 1. **Code won't upload**: Make sure switch is in Mode 1 (OFF OFF ON ON OFF OFF OFF OFF)
-2. **WiFi not working**: Make sure switch is in Mode 2 (ON ON OFF OFF OFF OFF OFF OFF) and press ESP Reboot button
+2. **WiFi not working**: Make sure switch is in Mode 4 (ON ON OFF OFF OFF OFF OFF OFF) for ATmega328 ↔ ESP8266 communication
 3. **LCD not displaying**: Check I2C connections and address (default: 0x27)
 4. **Serial communication issues**: Ensure baud rate is set to 115200
 
@@ -351,11 +538,14 @@ Uses CoinGecko API to fetch real-time Bitcoin prices in USD.
 2. **Build fails**: Ensure `config.h` is copied from `config.h.template`
 3. **Wrong LCD address**: Update `LCD_ADDRESS` in `config.h`
 
-### **Switch Position Reference:**
+### **Switch Position Reference (Official):**
 ```
 Position: 1  2  3  4  5  6  7  8
-Mode 1:  OFF OFF ON ON OFF OFF OFF OFF  (Upload Arduino code)
-Mode 2:  ON ON OFF OFF OFF OFF OFF OFF  (Run with WiFi)
+ATmega ↔ ESP8266: 1  1  0  0  0  0  0  0  (Bitcoin Tracker - WiFi)
+USB → ATmega:     0  0  1  1  0  0  0  0  (Upload Arduino code)
+USB → ESP8266:    0  0  0  0  1  1  1  0  (Upload ESP8266 code)
+USB → ESP8266:    0  0  0  0  1  1  0  0  (ESP8266 serial monitor)
+All Independent:  0  0  0  0  0  0  0  0  (Factory reset)
 ```
 
 ### **Serial Monitor Issues:**
@@ -422,14 +612,38 @@ This project uses **PlatformIO** for professional embedded development:
 
 This project is specifically designed for the **UNO+WiFi R3** board, which combines Arduino UNO compatibility with built-in ESP8266 WiFi capabilities. The dual-mode operation allows you to program the Arduino and then run it with WiFi enabled, making it perfect for IoT projects like this Bitcoin price tracker.
 
-## 🎯 Next Steps
+## 🎯 **Complete Workflow Summary**
+
+### **1. Initial Setup**
+- Install PlatformIO and ESP8266 support
+- Configure WiFi credentials in ESP8266 firmware
+- Set up project structure
+
+### **2. Upload Process (3 Phases)**
+- **Phase 1**: Upload ESP8266 firmware (switches: `OFF OFF OFF OFF ON ON ON OFF`)
+- **Phase 2**: Upload ATmega328 code (switches: `OFF OFF ON ON OFF OFF OFF OFF`)
+- **Phase 3**: Run WiFi mode (switches: `ON ON OFF OFF OFF OFF OFF OFF`)
+
+### **3. Testing & Verification**
+- Monitor serial output for clean communication
+- Verify WiFi connection and price updates
+- Check LCD display functionality
+- Monitor performance and troubleshoot issues
+
+### **4. Expected Results**
+- Clean "OK" responses from ESP8266
+- Successful WiFi connection
+- Real-time Bitcoin price updates
+- Smooth LCD display updates
+
+## 🚀 **Next Steps**
 
 1. **Install PlatformIO IDE** in VS Code
 2. **Setup configuration** by copying `config.h.template` to `config.h`
-3. **Edit WiFi credentials** in `src/config.h`
+3. **Edit WiFi credentials** in `src/config.h` and `src/esp8266_firmware.cpp`
 4. **Open the project folder**
-5. **Build the project** to install dependencies
-6. **Upload to your board**
+5. **Follow the 3-phase upload process** (ESP8266 → ATmega328 → WiFi mode)
+6. **Test and verify** WiFi communication
 7. **Enjoy your Bitcoin price tracker!**
 
 ## 🔒 Security Features
