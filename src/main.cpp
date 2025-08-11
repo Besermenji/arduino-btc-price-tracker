@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <ArduinoJson.h>
@@ -74,6 +75,14 @@ byte dollarSign[8] = {
   0b01110,
   0b00100
 };
+
+void showWelcomeScreen();
+void showWiFiConnected();
+void initializeWiFi();
+void updateBitcoinPrice();
+void showPriceDisplay(float price);
+String formatPrice(float price);
+void showErrorDisplay(String error);
 
 void setup() {
   Serial.begin(115200);

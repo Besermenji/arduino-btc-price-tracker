@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
@@ -51,6 +52,12 @@ byte arrowDown[8] = {
   0b00100,
   0b00000
 };
+
+void welcomeAnimation();
+void showPrettyFormats();
+void scrollText(String text, int row);
+void showPriceWithArrows(float price, bool isUp);
+void showWiFiStatus();
 
 void setup() {
   Serial.begin(9600);
