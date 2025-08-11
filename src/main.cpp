@@ -158,23 +158,29 @@ void loop() {
 void showWelcomeScreen() {
   lcd.clear();
   
-  // Top row with Bitcoin symbol
+  // Top row with Bitcoin theme
   lcd.setCursor(0, 0);
-  lcd.print("  ");
-  lcd.write(0);
-  lcd.print(" BTC Tracker ");
-  lcd.write(0);
-  lcd.print("  ");
+  lcd.print("Bitcoin Tracker");
   
-  // Bottom row with WiFi symbol
+  // Bottom row with elegant message
   lcd.setCursor(0, 1);
-  lcd.print(" ");
-  lcd.write(1);
-  lcd.print(" Connecting... ");
-  lcd.write(1);
-  lcd.print(" ");
+  lcd.print("Connecting...");
   
   delay(1500);
+  
+  // Show a cool loading animation
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("  Initializing...  ");
+  
+  // Animated dots
+  for (int i = 0; i < 3; i++) {
+    lcd.setCursor(8 + i, 1);
+    lcd.print(".");
+    delay(300);
+  }
+  
+  delay(500);
 }
 
 void showWiFiConnected() {
@@ -182,8 +188,7 @@ void showWiFiConnected() {
   
   // Top row: WiFi status
   lcd.setCursor(0, 0);
-  lcd.write(1);
-  lcd.print(" WiFi Connected!");
+  lcd.print("WiFi Connected!");
   
   // Bottom row: Ready message
   lcd.setCursor(0, 1);
@@ -388,7 +393,7 @@ void updateBitcoinPrice() {
   Serial.println("GET");
 
   // Read response
-  lcdMsg(F("Fetching"), F("Price..."));
+  lcdMsg(F("Bitcoin Price"), F("Loading..."));
   unsigned long startTime = millis();
   responseBuffer = "";
   
@@ -405,13 +410,13 @@ void updateBitcoinPrice() {
     delay(10);
   }
   
-  // Parse JSON response - extract price directly
+  // Parse JSON response - extract price and change
   if (responseBuffer.length() > 0) {
     int jsonStart = responseBuffer.indexOf('{');
     if (jsonStart != -1) {
       String jsonData = responseBuffer.substring(jsonStart);
       
-      // Look for "usd": pattern in the JSON
+      // Look for "usd": and "usd_24h_change": patterns
       int usdStart = jsonData.indexOf("\"usd\":");
       int usd_24h_changeStart = jsonData.indexOf("\"usd_24h_change\":");
       
@@ -436,23 +441,28 @@ void updateBitcoinPrice() {
           float changePercent = changeStr.toFloat();
           
           if (btcPrice > 0) {
-            // Display price and change
+            // Clean display for LCD1602 (16 chars per line)
             lcd.clear();
-            lcd.setCursor(0, 0);
-            lcd.print("Bitcoin: $");
-            lcd.print(btcPrice);
             
-            lcd.setCursor(0, 1);
+            // Top line: BTC +0.45% (16 chars max)
+            lcd.setCursor(0, 0);
+            lcd.print("BTC ");
             if (changePercent > 0) {
               lcd.print("+");
               lcd.print(changePercent, 2);
               lcd.print("%");
             } else if (changePercent < 0) {
-              lcd.print(changePercent, 2);
+              lcd.print("-");
+              lcd.print(abs(changePercent), 2);
               lcd.print("%");
             } else {
               lcd.print("0.00%");
             }
+            
+            // Bottom line: $118748 (16 chars max)
+            lcd.setCursor(0, 1);
+            lcd.print("$");
+            lcd.print(btcPrice);
             
             lastPrice = btcPrice;
             firstUpdate = false;
