@@ -1,0 +1,27 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// WiFi Configuration
+// Replace these with your actual WiFi credentials
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+
+// LCD Configuration
+// Change this if your LCD has a different I2C address
+#define LCD_ADDRESS 0x27
+#define LCD_COLUMNS 16
+#define LCD_ROWS 2
+
+// API Configuration
+// CoinGecko API endpoint (no API key required)
+const char* apiUrl = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd";
+
+// Update Configuration
+// How often to update the Bitcoin price (in milliseconds)
+const unsigned long updateInterval = 30000; // 30 seconds
+
+// Serial Configuration
+// Baud rate for serial communication
+#define SERIAL_BAUD 115200
+
+#endif // CONFIG_H

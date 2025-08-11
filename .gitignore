@@ -30,3 +30,6 @@ lib/
 # Temporary files
 *.tmp
 *.temp
+
+# Configuration files with sensitive data
+src/config.h

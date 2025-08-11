@@ -2,21 +2,11 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <ArduinoJson.h>
-
-#define LCD_ADDRESS 0x27
-#define LCD_COLUMNS 16
-#define LCD_ROWS 2
+#include "config.h"
 
 LiquidCrystal_I2C lcd(LCD_ADDRESS, LCD_COLUMNS, LCD_ROWS);
 
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
-
-const char* apiUrl = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd";
-
 unsigned long lastUpdate = 0;
-const unsigned long updateInterval = 30000;
-
 float lastPrice = 0;
 bool firstUpdate = true;
 
@@ -85,7 +75,7 @@ String formatPrice(float price);
 void showErrorDisplay(String error);
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(SERIAL_BAUD);
   Serial.println("UNO+WiFi R3 BTC Price Tracker");
   
   Wire.begin();

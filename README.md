@@ -16,11 +16,46 @@ A **real-time Bitcoin price tracker** that displays current BTC prices on an LCD
 arduino-btc-price-tracker/
 ├── 📁 src/                    # Source code
 │   ├── 📄 main.cpp           # Bitcoin price tracker (main project)
-│   └── 📄 lcd_test.cpp       # LCD test and demo
+│   ├── 📄 lcd_test.cpp       # LCD test and demo
+│   ├── 📄 config.h           # Configuration file (create from template)
+│   └── 📄 config.h.template  # Template for configuration
 ├── ⚙️ platformio.ini         # PlatformIO configuration
 ├── 📖 README.md               # This comprehensive guide
 └── 🚫 .gitignore             # Git ignore rules
 ```
+
+## 🔐 Configuration Setup
+
+### **Important Security Note:**
+The `config.h` file contains your WiFi credentials and is **automatically gitignored** to prevent accidentally sharing sensitive information on GitHub.
+
+### **Setup Steps:**
+
+1. **Copy the template:**
+   ```bash
+   cp src/config.h.template src/config.h
+   ```
+
+2. **Edit `src/config.h` with your credentials:**
+   ```cpp
+   const char* ssid = "YOUR_ACTUAL_WIFI_NAME";
+   const char* password = "YOUR_ACTUAL_WIFI_PASSWORD";
+   ```
+
+3. **Customize other settings if needed:**
+   - LCD I2C address (default: 0x27)
+   - Update interval (default: 30 seconds)
+   - Serial baud rate (default: 115200)
+
+### **Configuration Options:**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `ssid` | `YOUR_WIFI_SSID` | Your WiFi network name |
+| `password` | `YOUR_WIFI_PASSWORD` | Your WiFi password |
+| `LCD_ADDRESS` | `0x27` | I2C address of your LCD |
+| `updateInterval` | `30000` | Price update frequency (ms) |
+| `SERIAL_BAUD` | `115200` | Serial communication speed |
 
 ## Hardware Requirements
 
@@ -45,6 +80,7 @@ arduino-btc-price-tracker/
 - Error handling for network issues
 - Easy-to-read price formatting with trend indicators
 - **Built-in WiFi** - No external WiFi module needed!
+- **Secure configuration** - Credentials stored locally, not in Git
 
 ## Pin Connections
 
@@ -74,13 +110,25 @@ arduino-btc-price-tracker/
 pip install platformio
 ```
 
-### 2. Open Project
+### 2. Setup Configuration
+```bash
+# Copy configuration template
+cp src/config.h.template src/config.h
+
+# Edit with your WiFi credentials
+# Use your preferred text editor
+nano src/config.h
+# or
+code src/config.h
+```
+
+### 3. Open Project
 ```bash
 cd arduino-btc-price-tracker
 platformio run
 ```
 
-### 3. Build and Upload
+### 4. Build and Upload
 
 #### **Build the project:**
 ```bash
@@ -197,11 +245,20 @@ Switch positions: `ON ON OFF OFF OFF OFF OFF OFF`
 
 ## 🔧 WiFi Configuration
 
-Edit the code to add your WiFi credentials:
-```cpp
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
-```
+**⚠️ Important:** WiFi credentials are now stored in `src/config.h` (not in the main code):
+
+1. **Copy the template:**
+   ```bash
+   cp src/config.h.template src/config.h
+   ```
+
+2. **Edit `src/config.h`:**
+   ```cpp
+   const char* ssid = "YOUR_ACTUAL_WIFI_NAME";
+   const char* password = "YOUR_ACTUAL_WIFI_PASSWORD";
+   ```
+
+3. **The file is automatically gitignored** - your credentials won't be shared on GitHub!
 
 ## 📚 What's Included
 
@@ -213,6 +270,7 @@ const char* password = "YOUR_WIFI_PASSWORD";
 - ✅ Price trend indicators
 - ✅ Error handling and retry logic
 - ✅ Professional display formatting
+- ✅ **Secure configuration system**
 
 ### **LCD Test (`lcd_test.cpp`)**
 - ✅ Custom character creation
@@ -221,6 +279,13 @@ const char* password = "YOUR_WIFI_PASSWORD";
 - ✅ Price simulation with arrows
 - ✅ WiFi status display
 - ✅ Multiple display styles
+
+### **Configuration (`config.h`)**
+- ✅ WiFi credentials (secure, gitignored)
+- ✅ LCD settings
+- ✅ API configuration
+- ✅ Update intervals
+- ✅ Serial communication settings
 
 ## 🎨 Visual Features
 
@@ -261,6 +326,12 @@ Uses CoinGecko API to fetch real-time Bitcoin prices in USD.
 2. **WiFi not working**: Make sure switch is in Mode 2 (ON ON OFF OFF OFF OFF OFF OFF) and press ESP Reboot button
 3. **LCD not displaying**: Check I2C connections and address (default: 0x27)
 4. **Serial communication issues**: Ensure baud rate is set to 115200
+
+### **Configuration Issues:**
+
+1. **WiFi not connecting**: Check that `config.h` exists and has correct credentials
+2. **Build fails**: Ensure `config.h` is copied from `config.h.template`
+3. **Wrong LCD address**: Update `LCD_ADDRESS` in `config.h`
 
 ### **Switch Position Reference:**
 ```
@@ -327,6 +398,7 @@ This project uses **PlatformIO** for professional embedded development:
 - **Multiple environments** - Support for different board configurations
 - **Integrated workflow** - Build, upload, and monitor in one place
 - **Professional tools** - Industry-standard development environment
+- **Secure configuration** - Credentials stored locally, not in Git
 
 ## Board Compatibility
 
@@ -335,11 +407,18 @@ This project is specifically designed for the **UNO+WiFi R3** board, which combi
 ## 🎯 Next Steps
 
 1. **Install PlatformIO IDE** in VS Code
-2. **Open the project folder**
-3. **Build the project** to install dependencies
-4. **Configure WiFi credentials**
-5. **Upload to your board**
-6. **Enjoy your Bitcoin price tracker!**
+2. **Setup configuration** by copying `config.h.template` to `config.h`
+3. **Edit WiFi credentials** in `src/config.h`
+4. **Open the project folder**
+5. **Build the project** to install dependencies
+6. **Upload to your board**
+7. **Enjoy your Bitcoin price tracker!**
+
+## 🔒 Security Features
+
+- **WiFi credentials are gitignored** - Never shared on GitHub
+- **Configuration template** - Easy setup without exposing secrets
+- **Local configuration** - All sensitive data stays on your machine
 
 ## License
 
