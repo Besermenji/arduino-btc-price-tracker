@@ -60,7 +60,7 @@ void httpPrice(){
   if(WiFi.status()!=WL_CONNECTED){dbg(F("ERR no WiFi"));return;}
   WiFiClientSecure client;client.setInsecure();
   HTTPClient http;
-  const char *url="https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd";
+  const char *url="https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true";
   dbg(F("HTTP begin"));
   if(!http.begin(client,url)){dbg(F("ERR begin()"));return;}
   int code=http.GET();

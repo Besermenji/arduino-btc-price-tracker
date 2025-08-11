@@ -413,23 +413,47 @@ void updateBitcoinPrice() {
       
       // Look for "usd": pattern in the JSON
       int usdStart = jsonData.indexOf("\"usd\":");
-      if (usdStart != -1) {
+      int usd_24h_changeStart = jsonData.indexOf("\"usd_24h_change\":");
+      
+      if (usdStart != -1 && usd_24h_changeStart != -1) {
+        // Extract current price
         int valueStart = usdStart + 6; // Skip "usd":
         int valueEnd = jsonData.indexOf(",", valueStart);
         if (valueEnd == -1) valueEnd = jsonData.indexOf("}", valueStart);
         
-        if (valueEnd != -1) {
+        // Extract 24h change
+        int changeValueStart = usd_24h_changeStart + 18; // Skip "usd_24h_change":
+        int changeValueEnd = jsonData.indexOf(",", changeValueStart);
+        if (changeValueEnd == -1) changeValueEnd = jsonData.indexOf("}", changeValueStart);
+        
+        if (valueEnd != -1 && changeValueEnd != -1) {
           String priceStr = jsonData.substring(valueStart, valueEnd);
+          String changeStr = jsonData.substring(changeValueStart, changeValueEnd);
           priceStr.trim();
+          changeStr.trim();
+          
           float btcPrice = priceStr.toFloat();
+          float changePercent = changeStr.toFloat();
           
           if (btcPrice > 0) {
+            // Display price and change
             lcd.clear();
             lcd.setCursor(0, 0);
-            lcd.print("Bitcoin Price:");
-            lcd.setCursor(0, 1);
-            lcd.print("$");
+            lcd.print("Bitcoin: $");
             lcd.print(btcPrice);
+            
+            lcd.setCursor(0, 1);
+            if (changePercent > 0) {
+              lcd.print("+");
+              lcd.print(changePercent, 2);
+              lcd.print("%");
+            } else if (changePercent < 0) {
+              lcd.print(changePercent, 2);
+              lcd.print("%");
+            } else {
+              lcd.print("0.00%");
+            }
+            
             lastPrice = btcPrice;
             firstUpdate = false;
             return;
