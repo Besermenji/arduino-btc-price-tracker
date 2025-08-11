@@ -10,6 +10,18 @@ unsigned long lastUpdate = 0;
 float lastPrice = 0;
 bool firstUpdate = true;
 
+// Communication state
+enum CommunicationState {
+  IDLE,
+  SENDING_COMMAND,
+  WAITING_RESPONSE,
+  PROCESSING_RESPONSE
+};
+
+CommunicationState commState = IDLE;
+String currentCommand = "";
+String responseBuffer = "";
+
 // Custom characters for better visuals
 byte bitcoinSymbol[8] = {
   0b00000,
@@ -73,6 +85,9 @@ void updateBitcoinPrice();
 void showPriceDisplay(float price);
 String formatPrice(float price);
 void showErrorDisplay(String error);
+void sendCommandToESP(String command);
+void processESPResponse();
+void handleWiFiCommunication();
 
 void setup() {
   Serial.begin(SERIAL_BAUD);
@@ -103,6 +118,10 @@ void setup() {
 }
 
 void loop() {
+  // Handle WiFi communication state machine
+  handleWiFiCommunication();
+  
+  // Update price at intervals
   if (millis() - lastUpdate >= updateInterval) {
     updateBitcoinPrice();
     lastUpdate = millis();
@@ -147,72 +166,150 @@ void showWiFiConnected() {
 }
 
 void initializeWiFi() {
-  Serial.println("AT+RST");
+  // Reset ESP8266
+  sendCommandToESP("AT+RST");
   delay(2000);
   
-  Serial.println("AT+CWMODE=1");
+  // Set WiFi mode to station
+  sendCommandToESP("AT+CWMODE=1");
   delay(1000);
   
+  // Connect to WiFi network
   String cmd = "AT+CWJAP=\"";
   cmd += ssid;
   cmd += "\",\"";
   cmd += password;
   cmd += "\"";
-  Serial.println(cmd);
+  sendCommandToESP(cmd);
   delay(5000);
   
-  Serial.println("AT+CIPMUX=0");
+  // Set single connection mode
+  sendCommandToESP("AT+CIPMUX=0");
   delay(1000);
 }
 
-void updateBitcoinPrice() {
-  String cmd = "AT+CIPSTART=\"TCP\",\"api.coingecko.com\",80";
-  Serial.println(cmd);
-  delay(2000);
+void sendCommandToESP(String command) {
+  currentCommand = command;
+  commState = SENDING_COMMAND;
   
-  if (Serial.find("OK")) {
+  // Send command to ESP8266
+  Serial.println(command);
+  
+  // Wait for response
+  commState = WAITING_RESPONSE;
+  unsigned long startTime = millis();
+  
+  while (commState == WAITING_RESPONSE && (millis() - startTime) < 5000) {
+    if (Serial.available()) {
+      processESPResponse();
+    }
+    delay(10);
+  }
+  
+  if (commState == WAITING_RESPONSE) {
+    showErrorDisplay("ESP Timeout");
+    commState = IDLE;
+  }
+}
+
+void processESPResponse() {
+  if (Serial.available()) {
+    String response = Serial.readString();
+    responseBuffer += response;
+    
+    // Check for end of response indicators
+    if (responseBuffer.indexOf("OK") != -1 || 
+        responseBuffer.indexOf("ERROR") != -1 ||
+        responseBuffer.indexOf("FAIL") != -1) {
+      
+      commState = PROCESSING_RESPONSE;
+      
+      // Process the response based on the command sent
+      if (currentCommand.indexOf("AT+CWJAP") != -1) {
+        if (responseBuffer.indexOf("OK") != -1) {
+          Serial.println("WiFi connected successfully");
+        } else {
+          showErrorDisplay("WiFi Failed");
+        }
+      }
+      
+      // Clear buffers and return to idle
+      responseBuffer = "";
+      currentCommand = "";
+      commState = IDLE;
+    }
+  }
+}
+
+void handleWiFiCommunication() {
+  if (commState == WAITING_RESPONSE && Serial.available()) {
+    processESPResponse();
+  }
+}
+
+void updateBitcoinPrice() {
+  // Connect to API server
+  String cmd = "AT+CIPSTART=\"TCP\",\"api.coingecko.com\",80";
+  sendCommandToESP(cmd);
+  
+  if (commState == IDLE) {
+    // Prepare HTTP request
     String request = "GET /api/v3/simple/price?ids=bitcoin&vs_currencies=usd HTTP/1.1\r\n";
     request += "Host: api.coingecko.com\r\n";
     request += "Connection: close\r\n\r\n";
     
-    String cmd = "AT+CIPSEND=";
-    cmd += request.length();
-    Serial.println(cmd);
-    delay(1000);
+    // Send data length command
+    String sendCmd = "AT+CIPSEND=";
+    sendCmd += request.length();
+    sendCommandToESP(sendCmd);
     
-    Serial.print(request);
-    delay(2000);
-    
-    String response = "";
-    while (Serial.available()) {
-      response += Serial.readString();
+    if (commState == IDLE) {
+      // Send the actual request
+      Serial.print(request);
+      delay(2000);
+      
+      // Read response
+      responseBuffer = "";
+      unsigned long startTime = millis();
+      
+      while ((millis() - startTime) < 10000) {
+        if (Serial.available()) {
+          String response = Serial.readString();
+          responseBuffer += response;
+          
+          // Check if we have complete response
+          if (responseBuffer.indexOf("\r\n\r\n") != -1) {
+            break;
+          }
+        }
+        delay(10);
+      }
+      
+      // Parse JSON response
+      int jsonStart = responseBuffer.indexOf("{");
+      if (jsonStart != -1) {
+        String jsonData = responseBuffer.substring(jsonStart);
+        
+        DynamicJsonDocument doc(1024);
+        deserializeJson(doc, jsonData);
+        
+        float btcPrice = doc["bitcoin"]["usd"];
+        
+        // Show price with pretty formatting
+        showPriceDisplay(btcPrice);
+        
+        Serial.print("BTC Price: $");
+        Serial.println(btcPrice, 2);
+        
+        lastPrice = btcPrice;
+        firstUpdate = false;
+      } else {
+        showErrorDisplay("Parse Error");
+      }
+      
+      // Close connection
+      sendCommandToESP("AT+CIPCLOSE");
     }
-    
-    int jsonStart = response.indexOf("{");
-    if (jsonStart != -1) {
-      String jsonData = response.substring(jsonStart);
-      
-      DynamicJsonDocument doc(1024);
-      deserializeJson(doc, jsonData);
-      
-      float btcPrice = doc["bitcoin"]["usd"];
-      
-      // Show price with pretty formatting
-      showPriceDisplay(btcPrice);
-      
-      Serial.print("BTC Price: $");
-      Serial.println(btcPrice, 2);
-      
-      lastPrice = btcPrice;
-      firstUpdate = false;
-    } else {
-      showErrorDisplay("Parse Error");
-    }
-    
-    Serial.println("AT+CIPCLOSE");
-    delay(1000);
-  } else {
-    showErrorDisplay("WiFi Error");
   }
 }
 

@@ -96,19 +96,11 @@ The `config.h` file contains your WiFi credentials and is **automatically gitign
 - **Integrated development** - Build, upload, and monitor in one place
 - **Professional workflow** - Industry-standard embedded development
 
-## 🛠️ Setup Instructions
+## Quick Start
 
 ### 1. Install PlatformIO
-
-#### **Option A: VS Code Extension (Recommended)**
-1. Install Visual Studio Code
-2. Install "PlatformIO IDE" extension
-3. Open the project folder in VS Code
-
-#### **Option B: Command Line**
-```bash
-pip install platformio
-```
+- **VS Code Extension** (Recommended): Install "PlatformIO IDE"
+- **Command Line**: `pip install platformio`
 
 ### 2. Setup Configuration
 ```bash
@@ -125,28 +117,43 @@ code src/config.h
 ### 3. Open Project
 ```bash
 cd arduino-btc-price-tracker
-platformio run
 ```
 
 ### 4. Build and Upload
 
-#### **Build the project:**
+#### **Bitcoin Price Tracker (Default):**
 ```bash
-platformio run
+# Build project
+platformio run --environment uno_wifi_r3
+
+# Upload to board
+platformio run --environment uno_wifi_r3 --target upload
+
+# Monitor serial output
+platformio run --environment uno_wifi_r3 --target monitor
 ```
 
-#### **Upload to board:**
+#### **LCD Test and Demo:**
 ```bash
+# Build project
+platformio run --environment lcd_test
+
+# Upload to board
+platformio run --environment lcd_test --target upload
+
+# Monitor serial output
+platformio run --environment lcd_test --target monitor
+```
+
+#### **Quick Commands (Default Environment):**
+```bash
+# Build and upload Bitcoin tracker (default)
 platformio run --target upload
-```
 
-#### **Monitor serial output:**
-```bash
+# Monitor output
 platformio run --target monitor
-```
 
-#### **Clean build:**
-```bash
+# Clean build
 platformio run --target clean
 ```
 
@@ -179,35 +186,46 @@ PlatformIO automatically installs these libraries:
 ## 🎯 How to Use This Project
 
 ### **Option 1: Bitcoin Price Tracker (Default)**
+- **Environment**: `uno_wifi_r3` (default)
 - **File**: `src/main.cpp`
 - **Purpose**: Real-time Bitcoin price tracking with WiFi
 - **Features**: Price updates, trend indicators, error handling
+- **Build Command**: `platformio run --environment uno_wifi_r3`
 
 ### **Option 2: LCD Test and Demo**
+- **Environment**: `lcd_test`
 - **File**: `src/lcd_test.cpp`
 - **Purpose**: Test LCD functionality and see pretty display features
 - **Features**: Custom characters, animations, scrolling text
+- **Build Command**: `platformio run --environment lcd_test`
 
 ## 🔄 Switching Between Projects
 
-### **Method 1: Rename Files (Recommended)**
+### **Method 1: Use Different Environments (Recommended)**
 ```bash
 # For Bitcoin Tracker
-mv src/lcd_test.cpp src/lcd_test.cpp.bak
-mv src/main.cpp.bak src/main.cpp
+platformio run --environment uno_wifi_r3
 
 # For LCD Test
-mv src/main.cpp src/main.cpp.bak
-mv src/lcd_test.cpp.bak src/main.cpp
+platformio run --environment lcd_test
 ```
 
-### **Method 2: Edit platformio.ini**
-```ini
-[env:uno_wifi_r3]
-# Change source filter
-src_filter = +<main.cpp>      # For Bitcoin tracker
-# OR
-src_filter = +<lcd_test.cpp>  # For LCD test
+### **Method 2: Upload Specific Environment**
+```bash
+# Upload Bitcoin Tracker
+platformio run --environment uno_wifi_r3 --target upload
+
+# Upload LCD Test
+platformio run --environment lcd_test --target upload
+```
+
+### **Method 3: Monitor Specific Environment**
+```bash
+# Monitor Bitcoin Tracker
+platformio run --environment uno_wifi_r3 --target monitor
+
+# Monitor LCD Test
+platformio run --environment lcd_test --target monitor
 ```
 
 ## 🚨 Hardware Switch Configuration
