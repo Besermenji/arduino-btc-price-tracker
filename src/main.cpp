@@ -377,7 +377,7 @@ void updateTime() {
             timeStr = timeStr.substring(1, timeStr.length() - 1);
           }
           
-          if (timeStr != "--:--:--") {
+                     if (timeStr != "--:--") {
             // Display time
             lcd.clear();
             lcd.setCursor(0, 0);

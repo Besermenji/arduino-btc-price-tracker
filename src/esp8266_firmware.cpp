@@ -126,16 +126,14 @@ void getTime(){
     // Get Belgrade time (UTC+2)
     int hours = timeClient.getHours();
     int minutes = timeClient.getMinutes();
-    int seconds = timeClient.getSeconds();
     
-    // Format time as HH:MM:SS
+    // Format time as HH:MM (no seconds)
     String timeStr = String(hours < 10 ? "0" : "") + String(hours) + ":" +
-                     String(minutes < 10 ? "0" : "") + String(minutes) + ":" +
-                     String(seconds < 10 ? "0" : "") + String(seconds);
+                     String(minutes < 10 ? "0" : "") + String(minutes);
     
     dbg(F("Belgrade Time (UTC+2): ")); dbg(timeStr);
     
-    // Send time to Arduino in format: {"time":"HH:MM:SS"}
+    // Send time to Arduino in format: {"time":"HH:MM"}
     String timeJson = "{\"time\":\"" + timeStr + "\"}";
     Serial.println(timeJson);
   }else{
