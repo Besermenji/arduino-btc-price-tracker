@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <ArduinoJson.h>
+#include <math.h>
 #include "config.h"
 
 // LCD setup
@@ -405,8 +406,9 @@ void updateBitcoinPrice() {
         int valueEnd = jsonData.indexOf(",", valueStart);
         if (valueEnd == -1) valueEnd = jsonData.indexOf("}", valueStart);
         
-        // Extract 24h change
-        int changeValueStart = usd_24h_changeStart + 17; // Skip "usd_24h_change" but start at colon to capture negative sign
+        // Extract 24h change - more robust approach
+        int colonPos = jsonData.indexOf(":", usd_24h_changeStart);
+        int changeValueStart = colonPos + 1; // Start right after the colon
         int changeValueEnd = jsonData.indexOf(",", changeValueStart);
         if (changeValueEnd == -1) {
           // If no comma found, look for the closing brace of the bitcoin object
@@ -422,12 +424,28 @@ void updateBitcoinPrice() {
           priceStr.trim();
           changeStr.trim();
           
-
+          // Debug output to Serial if needed
+          if (DEBUG_MODE) {
+            Serial.print("Price string: '");
+            Serial.print(priceStr);
+            Serial.println("'");
+            Serial.print("Change string: '");
+            Serial.print(changeStr);
+            Serial.println("'");
+          }
           
           float btcPrice = priceStr.toFloat();
           float changePercent = changeStr.toFloat();
           
-
+          // Debug output to Serial if needed
+          if (DEBUG_MODE) {
+            Serial.print("Parsed price: ");
+            Serial.println(btcPrice);
+            Serial.print("Parsed change: ");
+            Serial.println(changePercent);
+            Serial.print("Change is negative: ");
+            Serial.println(changePercent < 0 ? "YES" : "NO");
+          }
           
           if (btcPrice > 0) {
             // Clean display for LCD1602 (16 chars per line)
@@ -445,7 +463,7 @@ void updateBitcoinPrice() {
               lcd.print("%");
             } else if (changePercent < 0) {
               lcd.print("-");
-              lcd.print(abs(changePercent), 2);
+              lcd.print(fabs(changePercent), 2);
               lcd.print("%");
             } else {
               lcd.print("0.00%");
