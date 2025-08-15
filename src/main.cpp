@@ -406,9 +406,15 @@ void updateBitcoinPrice() {
         if (valueEnd == -1) valueEnd = jsonData.indexOf("}", valueStart);
         
         // Extract 24h change
-        int changeValueStart = usd_24h_changeStart + 18; // Skip "usd_24h_change":
+        int changeValueStart = usd_24h_changeStart + 17; // Skip "usd_24h_change" but start at colon to capture negative sign
         int changeValueEnd = jsonData.indexOf(",", changeValueStart);
-        if (changeValueEnd == -1) changeValueEnd = jsonData.indexOf("}", changeValueStart);
+        if (changeValueEnd == -1) {
+          // If no comma found, look for the closing brace of the bitcoin object
+          int bitcoinObjEnd = jsonData.indexOf("}", changeValueStart);
+          if (bitcoinObjEnd != -1) {
+            changeValueEnd = bitcoinObjEnd;
+          }
+        }
         
         if (valueEnd != -1 && changeValueEnd != -1) {
           String priceStr = jsonData.substring(valueStart, valueEnd);
@@ -416,8 +422,12 @@ void updateBitcoinPrice() {
           priceStr.trim();
           changeStr.trim();
           
+
+          
           float btcPrice = priceStr.toFloat();
           float changePercent = changeStr.toFloat();
+          
+
           
           if (btcPrice > 0) {
             // Clean display for LCD1602 (16 chars per line)
@@ -426,6 +436,9 @@ void updateBitcoinPrice() {
             // Top line: BTC +0.45% (16 chars max)
             lcd.setCursor(0, 0);
             lcd.print("BTC ");
+            
+
+            
             if (changePercent > 0) {
               lcd.print("+");
               lcd.print(changePercent, 2);
