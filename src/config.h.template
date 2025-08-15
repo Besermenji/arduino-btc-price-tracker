@@ -21,7 +21,7 @@ const char* apiUrl = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&
 
 // Update Configuration
 // How often to update the Bitcoin price (in milliseconds)
-const unsigned long updateInterval = 30000; // 30 seconds
+const unsigned long updateInterval = 60000; // 60 seconds (BTC and Time alternate every 30 seconds)
 
 // Serial Configuration
 // Baud rate for serial communication

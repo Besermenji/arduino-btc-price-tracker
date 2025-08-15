@@ -17,93 +17,22 @@ static void lcdMsg(const __FlashStringHelper* line1, const __FlashStringHelper* 
   lcd.print(line2);
 }
 
-// Communication state machine
-enum CommunicationState {
-  IDLE,
-  SENDING_COMMAND,
-  WAITING_RESPONSE,
-  PROCESSING_RESPONSE
-};
-
-CommunicationState currentState = IDLE;
-unsigned long lastStateChange = 0;
-unsigned long lastPriceUpdate = 0;
-bool wifiConnected = false;
-bool debugMode = DEBUG_MODE;  // Debug toggle from config
-
-// Debug functions
-void debugPrint(const String& message) {
-  if (debugMode) {
-    Serial.print("[DEBUG] ");
-    Serial.println(message);
-  }
-}
-
-void debugPrintState(const String& operation) {
-  if (debugMode) {
-    Serial.print("[STATE] ");
-    Serial.print(operation);
-    Serial.print(" -> State: ");
-    switch (currentState) {
-      case IDLE: Serial.println("IDLE"); break;
-      case SENDING_COMMAND: Serial.println("SENDING_COMMAND"); break;
-      case WAITING_RESPONSE: Serial.println("WAITING_RESPONSE"); break;
-      case PROCESSING_RESPONSE: Serial.println("PROCESSING_RESPONSE"); break;
-    }
-  }
-}
-
-void debugPrintCommand(const String& command) {
-  if (debugMode) {
-    Serial.print("[ESP8266] Sending: ");
-    Serial.println(command);
-  }
-}
-
-void debugPrintResponse(const String& response) {
-  if (debugMode) {
-    Serial.print("[ESP8266] Response: ");
-    Serial.println(response);
-  }
-}
-
-void debugPrintWiFiStatus() {
-  if (debugMode) {
-    Serial.print("[WiFi] Status: ");
-    Serial.println(wifiConnected ? "CONNECTED" : "DISCONNECTED");
-  }
-}
-
-void debugPrintPriceUpdate(const String& price) {
-  if (debugMode) {
-    Serial.print("[API] Bitcoin Price: $");
-    Serial.println(price);
-  }
-}
-
-void debugPrintError(const String& error) {
-  if (debugMode) {
-    Serial.print("[ERROR] ");
-    Serial.println(error);
-  }
-}
-
+// Simple state variables
 unsigned long lastUpdate = 0;
+unsigned long lastTimeUpdate = 0;
+bool showTime = false;
 float lastPrice = 0;
 bool firstUpdate = true;
 
 // Communication state
-String currentCommand = "";
 String responseBuffer = "";
 
 void showWelcomeScreen();
 void showWiFiConnected();
 void initializeWiFi();
 void updateBitcoinPrice();
+void updateTime();
 void showErrorDisplay(String error);
-void sendCommandToESP(String command);
-void processESPResponse();
-void handleWiFiCommunication();
 void showRawDebug(String raw);
 void showScrollingText(String text, int row);
 void showFullResponse(String response);
@@ -125,18 +54,27 @@ void setup() {
   // Show connected status
   showWiFiConnected();
   
-  // First price update
+  // Start with Bitcoin price display
+  lastUpdate = millis();
+  showTime = false;
   updateBitcoinPrice();
 }
 
 void loop() {
-  // Handle WiFi communication state machine
-  handleWiFiCommunication();
+  // Simple alternating display logic - every 30 seconds
+  static unsigned long lastToggle = 0;
   
-  // Update price at intervals
-  if (millis() - lastUpdate >= updateInterval) {
-    updateBitcoinPrice();
-    lastUpdate = millis();
+  if (millis() - lastToggle >= 30000) {
+    if (showTime) {
+      // Currently showing time, switch to BTC
+      showTime = false;
+      updateBitcoinPrice();
+    } else {
+      // Currently showing BTC, switch to time
+      showTime = true;
+      updateTime();
+    }
+    lastToggle = millis();
   }
 }
 
@@ -207,11 +145,9 @@ void initializeWiFi() {
   }
 
   if (ready) {
-    wifiConnected = true;
     lcdMsg(F("WiFi"), F("Ready"));
     delay(800);
   } else {
-    wifiConnected = false;
     if (DEBUG_MODE) {
       Serial.print(F("[DEBUG] ESP not ready. Received: '"));
       Serial.print(receivedData);
@@ -219,152 +155,6 @@ void initializeWiFi() {
     }
     showErrorDisplay("ESP not ready");
     delay(2000);
-  }
-}
-
-void sendCommandToESP(String command) {
-  currentCommand = command;
-  currentState = SENDING_COMMAND;
-  debugPrintState("Sending command");
-  
-  // Send command to ESP8266
-  debugPrintCommand(command);
-  Serial.println(command);
-  
-  // Give ESP8266 time to process command
-  delay(100);
-  
-  // Wait for response
-  currentState = WAITING_RESPONSE;
-  debugPrintState("Waiting for response");
-  unsigned long startTime = millis();
-  
-  // Clear any previous response data
-  responseBuffer = "";
-  
-  while (currentState == WAITING_RESPONSE && (millis() - startTime) < 10000) { // Increased timeout to 10 seconds
-    if (Serial.available()) {
-      processESPResponse();
-    }
-    delay(50); // Increased delay for better response handling
-  }
-  
-  if (currentState == WAITING_RESPONSE) {
-    debugPrintError("ESP8266 timeout - no response received");
-    showErrorDisplay("ESP Timeout");
-    currentState = IDLE;
-    debugPrintState("Timeout - returning to IDLE");
-  }
-}
-
-void processESPResponse() {
-  if (Serial.available()) {
-    String response = Serial.readString();
-    responseBuffer += response;
-    
-    // Debug: Show raw response data
-    if (debugMode) {
-      Serial.print("[RAW] Length: ");
-      Serial.print(response.length());
-      Serial.print(" Data: ");
-      for (int i = 0; i < response.length(); i++) {
-        char c = response[i];
-        if (c >= 32 && c <= 126) {
-          Serial.print(c); // Printable character
-        } else {
-          Serial.print("["); // Non-printable character
-          Serial.print((int)c, HEX);
-          Serial.print("]");
-        }
-      }
-      Serial.println();
-    }
-    
-    debugPrintResponse(response);
-    
-    // Check for end of response indicators
-    if (responseBuffer.indexOf("OK") != -1 || 
-        responseBuffer.indexOf("ERROR") != -1 ||
-        responseBuffer.indexOf("FAIL") != -1 ||
-        responseBuffer.indexOf("ready") != -1) {
-      
-      currentState = PROCESSING_RESPONSE;
-      debugPrintState("Processing response");
-      
-      // Process the response based on the command sent
-      if (currentCommand.indexOf("AT+CWJAP") != -1) {
-        if (responseBuffer.indexOf("OK") != -1) {
-          debugPrint("WiFi connected successfully!");
-          wifiConnected = true;
-          debugPrintWiFiStatus();
-          lcdMsg(F("WiFi"), F("Connected"));
-          delay(400);
-        } else if (responseBuffer.indexOf("FAIL") != -1) {
-          debugPrintError("WiFi connection failed");
-          wifiConnected = false;
-          debugPrintWiFiStatus();
-          showErrorDisplay("WiFi Failed");
-        } else {
-          debugPrintError("WiFi connection unknown status");
-          wifiConnected = false;
-          debugPrintWiFiStatus();
-        }
-      } else if (currentCommand.indexOf("AT+CIPSTART") != -1) {
-        if (responseBuffer.indexOf("OK") != -1) {
-          debugPrint("TCP connection established");
-          lcdMsg(F("HTTP"), F("TCP OK"));
-          delay(200);
-        } else {
-          debugPrintError("TCP connection failed");
-          showErrorDisplay("TCP Failed");
-        }
-      } else if (currentCommand.indexOf("AT+CIPSEND") != -1) {
-        if (responseBuffer.indexOf(">") != -1 || responseBuffer.indexOf("OK") != -1) {
-          debugPrint("Ready to send data");
-          lcdMsg(F("HTTP"), F("SEND..."));
-          delay(150);
-        } else {
-          debugPrintError("Data send preparation failed");
-          showErrorDisplay("SEND Failed");
-        }
-      } else if (currentCommand.indexOf("AT+CIPCLOSE") != -1) {
-        if (responseBuffer.indexOf("OK") != -1) {
-          debugPrint("Connection closed successfully");
-        } else {
-          debugPrintError("Connection close failed");
-        }
-      } else if (currentCommand.indexOf("AT+RST") != -1) {
-        if (responseBuffer.indexOf("ready") != -1 || responseBuffer.indexOf("OK") != -1) {
-          debugPrint("ESP8266 reset successful");
-        } else {
-          debugPrintError("ESP8266 reset failed");
-        }
-      } else if (currentCommand.indexOf("AT+CWMODE") != -1) {
-        if (responseBuffer.indexOf("OK") != -1) {
-          debugPrint("WiFi mode set successfully");
-        } else {
-          debugPrintError("WiFi mode setting failed");
-        }
-      } else if (currentCommand.indexOf("AT+CIPMUX") != -1) {
-        if (responseBuffer.indexOf("OK") != -1) {
-          debugPrint("Connection mode set successfully");
-        } else {
-          debugPrintError("Connection mode setting failed");
-        }
-      }
-      
-      // Clear buffers and return to idle
-      responseBuffer = "";
-      currentCommand = "";
-      currentState = IDLE;
-      debugPrintState("Response processed - returning to IDLE");
-    }
-  }
-}
-
-void handleWiFiCommunication() {
-  if (currentState == WAITING_RESPONSE && Serial.available()) {
-    processESPResponse();
   }
 }
 
@@ -395,6 +185,28 @@ void updateBitcoinPrice() {
     int jsonStart = responseBuffer.indexOf('{');
     if (jsonStart != -1) {
       String jsonData = responseBuffer.substring(jsonStart);
+      
+      // Check if ESP8266 sent an error response
+      int errorStart = jsonData.indexOf("\"error\":");
+      if (errorStart != -1) {
+        // Extract error message
+        int errorValueStart = errorStart + 8; // Skip "error":
+        int errorValueEnd = jsonData.indexOf("}", errorValueStart);
+        
+        if (errorValueEnd != -1) {
+          String errorStr = jsonData.substring(errorValueStart, errorValueEnd);
+          errorStr.trim();
+          
+          // Remove quotes if present
+          if (errorStr[0] == '"' && errorStr[errorStr.length() - 1] == '"') {
+            errorStr = errorStr.substring(1, errorStr.length() - 1);
+          }
+          
+          // Show ESP8266 error message
+          showErrorDisplay("ESP: " + errorStr);
+          return;
+        }
+      }
       
       // Look for "usd": and "usd_24h_change": patterns
       int usdStart = jsonData.indexOf("\"usd\":");
@@ -455,8 +267,6 @@ void updateBitcoinPrice() {
             lcd.setCursor(0, 0);
             lcd.print("BTC ");
             
-
-            
             if (changePercent > 0) {
               lcd.print("+");
               lcd.print(changePercent, 2);
@@ -482,12 +292,108 @@ void updateBitcoinPrice() {
       }
     }
     
-    // If we get here, something went wrong
-    showErrorDisplay("Price fetch failed");
+    // If we get here, something went wrong - provide specific error messages
+    if (responseBuffer.length() == 0) {
+      showErrorDisplay("Empty response");
+    } else if (responseBuffer.indexOf('{') == -1) {
+      showErrorDisplay("No JSON: " + responseBuffer.substring(0, 16));
+    } else {
+      int jsonStart = responseBuffer.indexOf('{');
+      String jsonData = responseBuffer.substring(jsonStart);
+      
+      if (jsonData.indexOf("\"usd\":") == -1) {
+        showErrorDisplay("Missing fields: no USD");
+      } else if (jsonData.indexOf("\"usd_24h_change\":") == -1) {
+        showErrorDisplay("Missing fields: no 24h");
+      } else {
+        showErrorDisplay("Parse error: no price end");
+      }
+    }
   }
 }
 
+void updateTime() {
+  // Request time from ESP8266
+  responseBuffer = "";
+  Serial.println("TIME");
 
+  // Read response
+  unsigned long startTime = millis();
+  responseBuffer = "";
+  
+  while ((millis() - startTime) < 15000) {
+    if (Serial.available()) {
+      String chunk = Serial.readString();
+      responseBuffer += chunk;
+      
+      // Check if we have a complete JSON response
+      if (responseBuffer.indexOf('{') != -1 && responseBuffer.indexOf('}') != -1) {
+        break;
+      }
+    }
+    delay(10);
+  }
+  
+  // Parse time response
+  if (responseBuffer.length() > 0) {
+    int jsonStart = responseBuffer.indexOf('{');
+    if (jsonStart != -1) {
+      String jsonData = responseBuffer.substring(jsonStart);
+      
+      // Check if ESP8266 sent an error response
+      int errorStart = jsonData.indexOf("\"error\":");
+      if (errorStart != -1) {
+        // Extract error message
+        int errorValueStart = errorStart + 8; // Skip "error":
+        int errorValueEnd = jsonData.indexOf("}", errorValueStart);
+        
+        if (errorValueEnd != -1) {
+          String errorStr = jsonData.substring(errorValueStart, errorValueEnd);
+          errorStr.trim();
+          
+          // Remove quotes if present
+          if (errorStr[0] == '"' && errorStr[errorStr.length() - 1] == '"') {
+            errorStr = errorStr.substring(1, errorStr.length() - 1);
+          }
+          
+          // Show ESP8266 error message
+          showErrorDisplay("ESP: " + errorStr);
+          return;
+        }
+      }
+      
+      // Look for "time": pattern
+      int timeStart = jsonData.indexOf("\"time\":");
+      if (timeStart != -1) {
+        int valueStart = timeStart + 7; // Skip "time":
+        int valueEnd = jsonData.indexOf("}", valueStart);
+        
+        if (valueEnd != -1) {
+          String timeStr = jsonData.substring(valueStart, valueEnd);
+          timeStr.trim();
+          
+          // Remove quotes if present
+          if (timeStr[0] == '"' && timeStr[timeStr.length() - 1] == '"') {
+            timeStr = timeStr.substring(1, timeStr.length() - 1);
+          }
+          
+          if (timeStr != "--:--:--") {
+            // Display time
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Current Time");
+            lcd.setCursor(0, 1);
+            lcd.print(timeStr);
+            return;
+          }
+        }
+      }
+    }
+    
+    // If we get here, something went wrong
+    showErrorDisplay("Time fetch failed");
+  }
+}
 
 void showErrorDisplay(String error) {
   lcd.clear();
