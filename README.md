@@ -2,6 +2,10 @@
 
 A sophisticated Bitcoin price tracker and real-time clock using an Arduino UNO+WiFi R3 board with built-in ESP8266 WiFi module and an LCD1602 I2C display. Features alternating display between Bitcoin prices and current time.
 
+![IMG_6645](https://github.com/user-attachments/assets/2a52e290-f7cc-48ce-8137-1792c77bd6b3)
+![IMG_6646](https://github.com/user-attachments/assets/d8bf4f58-23bc-47c0-b836-3e098cda765b)
+
+
 ## Current Status: FULLY FUNCTIONAL
 
 - **Bitcoin Price Tracking**: Real-time prices from CoinGecko API with 24h change percentage
